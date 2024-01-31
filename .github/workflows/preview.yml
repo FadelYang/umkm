@@ -1,26 +1,40 @@
 on:
   push:
-    branches: main
+    branches: [main]
 
 jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Set the GH_TOKEN environment variable using secrets.GITHUB_TOKEN
     steps:
       - uses: actions/checkout@v3
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: "8.2"
+      
+      - name: Set Permissions
+        run: |
+          chmod 755 ./storage
+          chmod 755 ./public
+
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
       - name: Install Dependencies
-        run: composer install
+        run:
+          composer install
 
-      # Replace MySQL migration with PostgreSQL migration
+      - name: Build Frontend
+        run:
+          npm install vite -g
+          npm install
+          vite build
+
       - name: Migrate DB
         run: |
           php artisan migrate --force
@@ -28,14 +42,15 @@ jobs:
           APP_ENV: production
           DB_CONNECTION: pgsql
           DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: 5432  # PostgreSQL default port
+          DB_PORT: 5432
           DB_DATABASE: ${{ secrets.DB_DATABASE }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           PGSSLMODE: require
 
       - name: Deploy to Vercel
-        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel deploy --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
